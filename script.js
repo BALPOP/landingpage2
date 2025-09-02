@@ -958,6 +958,8 @@ window.setupTestEventsMode = setupTestEventsMode;
 window.sendAdsManagerTest = sendAdsManagerTest;
 window.debugUrlParameters = debugUrlParameters;
 window.preserveUtmParameters = preserveUtmParameters;
+window.preserveUtmParametersOnLoad = preserveUtmParametersOnLoad;
+window.clearStoredUtmParameters = clearStoredUtmParameters;
 window.diagnoseGitHubPagesIssues = diagnoseGitHubPagesIssues;
 
 /*
@@ -1101,6 +1103,117 @@ function preserveUtmParameters(utmParams = null) {
 }
 
 /*
+  Function: preserveUtmParametersOnLoad
+  Purpose: Automatically preserves UTM parameters when the page loads
+           Uses session storage as backup and handles GitHub Pages redirect issues
+  
+  External APIs used:
+  - History API: Modify URL without page reload
+  - Session Storage: Backup UTM parameters across redirects
+  - URLSearchParams (Web API): handle URL parameters
+*/
+function preserveUtmParametersOnLoad() {
+  console.log('🚀 Auto-preserving UTM parameters on page load...');
+  
+  const currentParams = new URLSearchParams(window.location.search);
+  const currentUtmParams = getUtmParameters();
+  
+  // Check if we have UTM parameters in the current URL
+  const hasCurrentUtm = Object.keys(currentUtmParams).length > 0;
+  
+  // Check session storage for previously stored UTM parameters
+  let storedUtmParams = {};
+  try {
+    const stored = sessionStorage.getItem('utm_parameters');
+    if (stored) {
+      storedUtmParams = JSON.parse(stored);
+      console.log('📦 Found stored UTM parameters:', storedUtmParams);
+    }
+  } catch (e) {
+    console.log('📝 No stored UTM parameters found');
+  }
+  
+  // Determine which UTM parameters to use
+  let finalUtmParams = {};
+  
+  if (hasCurrentUtm) {
+    // Current URL has UTM parameters - use them and store them
+    finalUtmParams = currentUtmParams;
+    console.log('✅ Using current URL UTM parameters');
+    
+    // Store in session storage for future use
+    try {
+      sessionStorage.setItem('utm_parameters', JSON.stringify(finalUtmParams));
+      console.log('💾 Stored UTM parameters for session');
+    } catch (e) {
+      console.log('⚠️  Could not store UTM parameters in session storage');
+    }
+  } else if (Object.keys(storedUtmParams).length > 0) {
+    // No current UTM but we have stored ones - restore them
+    finalUtmParams = storedUtmParams;
+    console.log('🔄 Restoring UTM parameters from session storage');
+    
+    // Add them back to the URL
+    const newUrl = new URL(window.location.href);
+    let urlModified = false;
+    
+    Object.keys(finalUtmParams).forEach(key => {
+      if (key !== 'tracking_timestamp' && finalUtmParams[key]) {
+        newUrl.searchParams.set(key, finalUtmParams[key]);
+        urlModified = true;
+      }
+    });
+    
+    if (urlModified && window.history && window.history.replaceState) {
+      window.history.replaceState({}, '', newUrl.toString());
+      console.log('🔗 URL updated with restored UTM parameters');
+      console.log('📍 New URL:', newUrl.toString());
+    }
+  } else {
+    console.log('📝 No UTM parameters found in URL or session storage');
+    return;
+  }
+  
+  // Log the final UTM parameters being used
+  if (Object.keys(finalUtmParams).length > 0) {
+    console.log('🎯 Active UTM Parameters:');
+    Object.keys(finalUtmParams).forEach(key => {
+      if (key !== 'tracking_timestamp') {
+        console.log(`   ${key}: ${finalUtmParams[key]}`);
+      }
+    });
+    
+    // Set up periodic preservation (in case of dynamic content changes)
+    setTimeout(() => {
+      preserveUtmParameters(finalUtmParams);
+    }, 2000);
+    
+    // Set up preservation on page visibility changes (handles browser back/forward)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        console.log('👁️ Page became visible - checking UTM preservation');
+        preserveUtmParameters(finalUtmParams);
+      }
+    });
+  }
+}
+
+/*
+  Function: clearStoredUtmParameters
+  Purpose: Clears stored UTM parameters from session storage
+           Useful for testing or when starting fresh campaigns
+*/
+function clearStoredUtmParameters() {
+  console.log('🧹 Clearing stored UTM parameters...');
+  try {
+    sessionStorage.removeItem('utm_parameters');
+    console.log('✅ UTM parameters cleared from session storage');
+  } catch (e) {
+    console.log('⚠️  Could not clear UTM parameters from session storage');
+  }
+}
+
+/*
   Function: diagnoseGitHubPagesIssues
   Purpose: Diagnoses common GitHub Pages issues with custom domains and URL parameters
            Specifically checks for redirect chains and DNS-level parameter stripping
@@ -1221,6 +1334,9 @@ async function diagnoseGitHubPagesIssues() {
 }
 
 function init() {
+  // Preserve UTM parameters immediately on page load
+  preserveUtmParametersOnLoad();
+  
   applyCtaUrl();
   
   // Verify basic PageView fired
@@ -1250,6 +1366,7 @@ function init() {
   console.log('   generateUtmUrls() - Generate tracking URLs');
   console.log('   debugUrlParameters() - Debug URL parameter issues');
   console.log('   preserveUtmParameters() - Keep UTM params in URL');
+  console.log('   clearStoredUtmParameters() - Clear stored UTM data');
   console.log('');
   console.log('🚨 TROUBLESHOOTING ADS MANAGER:');
   console.log('   1. Run: sendAdsManagerTest()');
