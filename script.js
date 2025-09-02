@@ -246,7 +246,7 @@ function applyCtaUrl() {
 /*
   Function: setupMetaPixelTracking
   Purpose: Sets up comprehensive Meta Pixel event tracking for user engagement
-           Includes ViewContent, AddToCart, and Lead events with UTM parameters
+           Includes enhanced PageView, ViewContent, AddToCart, and Lead events with UTM parameters
   
   External APIs used:
   - fbq (Meta Pixel): Facebook pixel tracking function for conversion events
@@ -273,6 +273,22 @@ async function setupMetaPixelTracking() {
     console.log('📊 Traffic Source Info:', trafficInfo);
     console.log(`${trafficInfo.sourceDetails.icon} Primary Source: ${trafficInfo.sourceDetails.name}`);
     console.log('📊 UTM parameters for tracking:', utmParams);
+    
+    // Track enhanced PageView event immediately with UTM parameters
+    const pageViewData = {
+      content_name: 'PopDez Landing Page',
+      content_category: 'Gaming Landing',
+      content_type: 'website',
+      currency: 'BRL',
+      traffic_source: trafficInfo.primarySource,
+      source_name: trafficInfo.sourceDetails.name,
+      page_title: document.title,
+      page_url: window.location.href,
+      ...utmParams
+    };
+    
+    // Fire enhanced PageView immediately
+    trackMetaPixelEvent('PageView', pageViewData, 'Enhanced page view with UTM data');
     
     // Track ViewContent event when page is fully loaded (engagement event)
     const viewContentData = {
@@ -528,23 +544,122 @@ function initCarousel() {
 
 /*
   Function: sendTestEvent
-  Purpose: Sends a test event to Meta Pixel for debugging purposes
+  Purpose: Sends a test event to Meta Pixel for debugging purposes with Test Event Code
            Can be called from browser console to verify pixel functionality
   
   External APIs used:
   - fbq (Meta Pixel): Facebook pixel tracking function for test events
 */
-function sendTestEvent() {
+function sendTestEvent(testEventCode = null) {
   console.log('🧪 Sending test event to Meta Pixel...');
+  
+  // Generate or use provided test event code
+  const eventCode = testEventCode || 'TEST_' + Date.now();
   
   const testData = {
     content_name: 'Test Event',
     content_category: 'Debug',
     currency: 'BRL',
-    test_event_code: 'TEST_' + Date.now()
+    value: 10.00,
+    test_event_code: eventCode
   };
   
-  return trackMetaPixelEvent('Purchase', testData, 'Manual test event');
+  console.log('🎯 Test Event Code:', eventCode);
+  console.log('💡 Use this code in Facebook Test Events tool to filter results');
+  
+  // Send multiple test events for better visibility
+  const events = ['Purchase', 'AddToCart', 'ViewContent'];
+  
+  events.forEach((eventName, index) => {
+    setTimeout(() => {
+      const eventData = {
+        ...testData,
+        content_name: `Test ${eventName}`,
+        test_event_code: eventCode + '_' + eventName
+      };
+      
+      trackMetaPixelEvent(eventName, eventData, `Test ${eventName} event`);
+    }, index * 500); // Stagger events by 500ms
+  });
+  
+  return eventCode;
+}
+
+/*
+  Function: testFacebookConnectivity
+  Purpose: Tests direct connectivity to Facebook's tracking endpoints
+           Helps identify network, ad blocker, or privacy setting issues
+  
+  External APIs used:
+  - Fetch API: Test HTTP requests to Facebook endpoints
+  - Image API: Test pixel tracking requests
+*/
+async function testFacebookConnectivity() {
+  console.log('🌐 === FACEBOOK CONNECTIVITY TEST ===');
+  
+  const pixelId = '1289805165983519';
+  const testResults = {};
+  
+  // Test 1: Facebook Pixel Script Loading
+  console.log('🔍 Test 1: Pixel Script Accessibility');
+  try {
+    const scriptResponse = await fetch('https://connect.facebook.net/en_US/fbevents.js', {
+      method: 'HEAD',
+      mode: 'no-cors'
+    });
+    console.log('✅ Facebook pixel script is accessible');
+    testResults.scriptAccess = true;
+  } catch (error) {
+    console.error('❌ Facebook pixel script is BLOCKED:', error.message);
+    testResults.scriptAccess = false;
+  }
+  
+  // Test 2: Tracking Endpoint Accessibility
+  console.log('🔍 Test 2: Tracking Endpoint Test');
+  const testImage = new Image();
+  
+  return new Promise((resolve) => {
+    testImage.onload = () => {
+      console.log('✅ Facebook tracking endpoint is accessible');
+      testResults.trackingAccess = true;
+      completeConnectivityTest();
+    };
+    
+    testImage.onerror = () => {
+      console.error('❌ Facebook tracking endpoint is BLOCKED');
+      testResults.trackingAccess = false;
+      completeConnectivityTest();
+    };
+    
+    // Test with actual pixel ID and test parameter
+    testImage.src = `https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1&test=1&ts=${Date.now()}`;
+    
+    // Timeout after 5 seconds
+    setTimeout(() => {
+      if (testResults.trackingAccess === undefined) {
+        console.error('⏰ Facebook tracking endpoint test TIMED OUT');
+        testResults.trackingAccess = false;
+        completeConnectivityTest();
+      }
+    }, 5000);
+    
+    function completeConnectivityTest() {
+      console.log('📊 Connectivity Results:', testResults);
+      
+      if (!testResults.scriptAccess || !testResults.trackingAccess) {
+        console.error('🚨 CONNECTIVITY ISSUES DETECTED:');
+        console.log('   • Check ad blocker settings');
+        console.log('   • Verify firewall/antivirus settings');
+        console.log('   • Test in incognito/private browsing mode');
+        console.log('   • Try different browser/device');
+      } else {
+        console.log('✅ Facebook connectivity is working properly');
+      }
+      
+      console.log('🌐 === END CONNECTIVITY TEST ===');
+      resolve(testResults);
+    }
+  });
 }
 
 /*
@@ -556,7 +671,7 @@ function sendTestEvent() {
   - fbq (Meta Pixel): Facebook pixel tracking function
   - Performance API: Check network requests to Facebook
 */
-function diagnoseMetaPixel() {
+async function diagnoseMetaPixel() {
   console.log('🔧 === META PIXEL DIAGNOSTIC REPORT ===');
   
   // Check if fbq is available
@@ -568,6 +683,9 @@ function diagnoseMetaPixel() {
   console.log('✅ Meta Pixel (fbq) is available');
   console.log('📊 Pixel loaded status:', window.fbq.loaded);
   console.log('📊 Pixel version:', window.fbq.version);
+  
+  // Run connectivity test first
+  await testFacebookConnectivity();
   
   // Check recent network requests to Facebook
   if ('performance' in window && 'getEntriesByType' in performance) {
@@ -586,7 +704,7 @@ function diagnoseMetaPixel() {
   const testPixel = new Image();
   testPixel.onload = () => console.log('✅ Facebook tracking domain is accessible');
   testPixel.onerror = () => console.error('❌ Facebook tracking domain is BLOCKED (ad blocker or privacy settings)');
-  testPixel.src = 'https://www.facebook.com/tr?id=1032961382302053&ev=PageView&noscript=1&test=1';
+  testPixel.src = 'https://www.facebook.com/tr?id=1289805165983519&ev=PageView&noscript=1&test=1';
   
   // Browser detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -717,25 +835,189 @@ function showTrafficSourceReport() {
   return trafficInfo;
 }
 
+/*
+  Function: setupTestEventsMode
+  Purpose: Sets up Test Events mode with proper test event codes for Ads Manager visibility
+           This helps events show up in Facebook's Test Events tool
+  
+  External APIs used:
+  - fbq (Meta Pixel): Facebook pixel tracking function with test event codes
+*/
+function setupTestEventsMode(testEventCode = null) {
+  console.log('🧪 === SETTING UP TEST EVENTS MODE ===');
+  
+  const eventCode = testEventCode || 'LANDING_TEST_' + Date.now();
+  
+  console.log('🎯 Test Event Code:', eventCode);
+  console.log('📋 Steps to verify in Facebook:');
+  console.log('   1. Go to Events Manager > Test Events');
+  console.log('   2. Enter your website URL');
+  console.log('   3. Use Test Event Code:', eventCode);
+  console.log('   4. Click "Test Events" button below');
+  console.log('');
+  
+  // Override the current tracking to include test event codes
+  const originalTrackMethod = window.trackMetaPixelEvent;
+  
+  window.trackMetaPixelEvent = function(eventName, eventData = {}, description = '') {
+    // Add test event code to all events
+    const enhancedData = {
+      ...eventData,
+      test_event_code: eventCode
+    };
+    
+    console.log(`🧪 TEST MODE: ${eventName} with code: ${eventCode}`);
+    return originalTrackMethod(eventName, enhancedData, description);
+  };
+  
+  console.log('✅ Test Events mode activated!');
+  console.log('🔄 Refresh the page or trigger events to see them in Ads Manager');
+  console.log('🧪 === TEST EVENTS MODE ACTIVE ===');
+  
+  return eventCode;
+}
+
+/*
+  Function: sendAdsManagerTest
+  Purpose: Sends events specifically formatted for Facebook Ads Manager Test Events tool
+           Includes proper test event codes and standard event parameters
+*/
+function sendAdsManagerTest() {
+  console.log('📊 === SENDING ADS MANAGER TEST EVENTS ===');
+  
+  const testCode = 'ADS_MANAGER_TEST_' + Date.now();
+  const pixelId = '1289805165983519';
+  
+  console.log('🎯 Test Event Code for Ads Manager:', testCode);
+  console.log('📱 Pixel ID:', pixelId);
+  console.log('');
+  console.log('📋 INSTRUCTIONS:');
+  console.log('1. Open Facebook Ads Manager');
+  console.log('2. Go to Events Manager > Test Events');
+  console.log('3. Enter this URL:', window.location.href);
+  console.log('4. Click "Open Website"');
+  console.log('5. Events should appear within 20 seconds');
+  console.log('');
+  
+  // Send standard Facebook events with proper parameters
+  const standardEvents = [
+    {
+      name: 'PageView',
+      data: {
+        content_name: 'PopDez Landing Page',
+        content_category: 'Gaming',
+        test_event_code: testCode + '_PageView'
+      }
+    },
+    {
+      name: 'ViewContent',
+      data: {
+        content_name: 'PopDez Bonus Offer',
+        content_category: 'Gaming',
+        content_type: 'product',
+        currency: 'BRL',
+        test_event_code: testCode + '_ViewContent'
+      }
+    },
+    {
+      name: 'AddToCart',
+      data: {
+        content_name: 'PopDez Bonus',
+        content_category: 'Gaming',
+        currency: 'BRL',
+        value: 1.00,
+        test_event_code: testCode + '_AddToCart'
+      }
+    }
+  ];
+  
+  // Send events with 1-second intervals
+  standardEvents.forEach((event, index) => {
+    setTimeout(() => {
+      console.log(`🚀 Sending ${event.name} to Ads Manager...`);
+      trackMetaPixelEvent(event.name, event.data, `Ads Manager test - ${event.name}`);
+    }, (index + 1) * 1000);
+  });
+  
+  console.log('⏰ All test events will be sent within 3 seconds');
+  console.log('📊 Check Ads Manager Test Events tool for results');
+  console.log('📊 === END ADS MANAGER TEST ===');
+  
+  return testCode;
+}
+
 // Make all functions globally available for console debugging
 window.diagnoseMetaPixel = diagnoseMetaPixel;
 window.sendTestEvent = sendTestEvent;
 window.generateUtmUrls = generateUtmUrls;
 window.showTrafficSourceReport = showTrafficSourceReport;
 window.getTrafficSourceInfo = getTrafficSourceInfo;
+window.verifyBasicPageView = verifyBasicPageView;
+window.testFacebookConnectivity = testFacebookConnectivity;
+window.setupTestEventsMode = setupTestEventsMode;
+window.sendAdsManagerTest = sendAdsManagerTest;
+
+/*
+  Function: verifyBasicPageView
+  Purpose: Verifies that the basic PageView event from HTML fired correctly
+           This complements the enhanced PageView tracking
+  
+  External APIs used:
+  - fbq (Meta Pixel): Facebook pixel tracking function
+*/
+function verifyBasicPageView() {
+  console.log('🔍 Verifying basic PageView event...');
+  
+  // Check if fbq is available and has fired PageView
+  if (typeof window.fbq !== 'undefined') {
+    console.log('✅ Meta Pixel is loaded');
+    
+    // The basic PageView should have fired from HTML
+    // We can verify by checking network requests or pixel helper
+    console.log('📊 Basic PageView should have fired from HTML <head> section');
+    console.log('💡 Use Meta Pixel Helper browser extension to verify');
+    
+    return true;
+  } else {
+    console.error('❌ Meta Pixel not available - basic PageView may not have fired');
+    return false;
+  }
+}
 
 function init() {
   applyCtaUrl();
+  
+  // Verify basic PageView fired
+  setTimeout(() => {
+    verifyBasicPageView();
+  }, 500);
+  
   setupMetaPixelTracking();
   startCountdown();
   initCarousel();
   
   // Log helpful debug info
-  console.log('🔧 Debug Commands Available:');
-  console.log('   📊 showTrafficSourceReport() - View current traffic source');
-  console.log('   🔗 generateUtmUrls() - Generate tracking URLs');
-  console.log('   🧪 diagnoseMetaPixel() - Full Meta Pixel diagnostic');
-  console.log('   🎯 sendTestEvent() - Test individual events');
+  console.log('🔧 === DEBUG COMMANDS AVAILABLE ===');
+  console.log('📊 REPORTING:');
+  console.log('   showTrafficSourceReport() - View current traffic source');
+  console.log('   diagnoseMetaPixel() - Full Meta Pixel diagnostic');
+  console.log('   testFacebookConnectivity() - Test Facebook connectivity');
+  console.log('');
+  console.log('🧪 TESTING:');
+  console.log('   sendTestEvent() - Send test events with codes');
+  console.log('   sendAdsManagerTest() - Send events for Ads Manager');
+  console.log('   setupTestEventsMode() - Enable test mode for all events');
+  console.log('   verifyBasicPageView() - Check basic PageView event');
+  console.log('');
+  console.log('🔗 UTILITIES:');
+  console.log('   generateUtmUrls() - Generate tracking URLs');
+  console.log('');
+  console.log('🚨 TROUBLESHOOTING ADS MANAGER:');
+  console.log('   1. Run: sendAdsManagerTest()');
+  console.log('   2. Copy the test event code shown');
+  console.log('   3. Go to Events Manager > Test Events');
+  console.log('   4. Enter your website URL and test code');
+  console.log('');
   console.log('🔧 Also: Check Network tab for fbevents requests');
   console.log('🔧 Install Meta Pixel Helper browser extension for validation');
 }
