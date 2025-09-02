@@ -235,12 +235,12 @@ async function setupMetaPixelTracking() {
     
     window.addEventListener('scroll', handleScroll);
     
-    // Track AddToCart event when CTA is clicked with delayed redirect
+    // Track AddToCart event when CTA is clicked (DEBUG MODE - NO REDIRECT)
     cta.addEventListener('click', function(event) {
-      // Prevent default link behavior to control timing
+      // Prevent default link behavior
       event.preventDefault();
       
-      console.log('🎯 CTA button clicked! Tracking event before redirect...');
+      console.log('🐛 DEBUG MODE: CTA button clicked! Event tracking only...');
       
       const addToCartData = {
         content_name: 'PopDez Bonus Exclusivo',
@@ -252,43 +252,22 @@ async function setupMetaPixelTracking() {
       };
       
       // Track the event
-      const eventSent = trackMetaPixelEvent('AddToCart', addToCartData, 'CTA button clicked');
+      console.log('📊 Event data being sent:', addToCartData);
+      const eventSent = trackMetaPixelEvent('AddToCart', addToCartData, 'CTA button clicked (DEBUG)');
       
-      // Get destination URL from data attribute
-      const destinationUrl = cta.getAttribute('data-destination');
+      // Debug information
+      console.log('🔍 Meta Pixel availability check:');
+      console.log('   - fbq function exists:', typeof window.fbq !== 'undefined');
+      console.log('   - fbq loaded:', window.fbq ? window.fbq.loaded : 'N/A');
+      console.log('   - fbq version:', window.fbq ? window.fbq.version : 'N/A');
       
-      if (destinationUrl) {
-        // Wait for Meta Pixel event to be sent before redirecting
-        // Use both timeout and fbq callback for maximum compatibility
-        let redirected = false;
-        
-        const performRedirect = () => {
-          if (!redirected) {
-            redirected = true;
-            console.log('🚀 Redirecting to:', destinationUrl);
-            window.location.href = destinationUrl;
-          }
-        };
-        
-        // Primary method: Wait for fbq to process (300ms is usually enough)
-        setTimeout(performRedirect, 300);
-        
-        // Fallback: Ensure redirect happens even if event fails (1 second max)
-        setTimeout(performRedirect, 1000);
-        
-        // Optional: Try to use fbq callback if available (not always supported)
-        try {
-          if (window.fbq && typeof window.fbq.queue !== 'undefined') {
-            window.fbq('track', 'AddToCart', addToCartData, {
-              eventID: 'redirect_' + Date.now() // Prevent duplicate events
-            });
-          }
-        } catch (e) {
-          console.log('📝 Note: fbq callback not available, using timeout method');
-        }
-      } else {
-        console.error('❌ No destination URL found in data-destination attribute');
+      // Check if event was added to fbq queue
+      if (window.fbq && window.fbq.queue) {
+        console.log('📋 Current fbq queue length:', window.fbq.queue.length);
       }
+      
+      console.log('✅ DEBUG: Event tracking completed. No redirect performed.');
+      console.log('🔧 Check Network tab for requests to facebook.com/tr');
     });
     
     console.log('✅ Meta Pixel tracking setup completed successfully');
