@@ -956,6 +956,9 @@ window.verifyBasicPageView = verifyBasicPageView;
 window.testFacebookConnectivity = testFacebookConnectivity;
 window.setupTestEventsMode = setupTestEventsMode;
 window.sendAdsManagerTest = sendAdsManagerTest;
+window.debugUrlParameters = debugUrlParameters;
+window.preserveUtmParameters = preserveUtmParameters;
+window.diagnoseGitHubPagesIssues = diagnoseGitHubPagesIssues;
 
 /*
   Function: verifyBasicPageView
@@ -984,6 +987,239 @@ function verifyBasicPageView() {
   }
 }
 
+/*
+  Function: debugUrlParameters
+  Purpose: Debug function to check current URL and UTM parameters
+           Helps diagnose why UTM parameters might be disappearing
+  
+  External APIs used:
+  - URLSearchParams (Web API): parse URL query parameters
+*/
+function debugUrlParameters() {
+  console.log('🔍 === URL PARAMETER DEBUG ===');
+  
+  const currentUrl = window.location.href;
+  const search = window.location.search;
+  const params = new URLSearchParams(search);
+  
+  console.log('📍 Current URL:', currentUrl);
+  console.log('🔗 Search string:', search);
+  console.log('📊 All parameters:');
+  
+  if (params.toString() === '') {
+    console.log('   ❌ No parameters found in URL');
+  } else {
+    for (const [key, value] of params.entries()) {
+      console.log(`   ${key}: ${value}`);
+    }
+  }
+  
+  // Check for UTM parameters specifically
+  const utmParams = getUtmParameters();
+  console.log('🎯 UTM parameters detected:', utmParams);
+  
+  // Check if URL was modified by JavaScript
+  console.log('🔍 URL modification check:');
+  console.log('   Original URL on load:', document.referrer || 'Direct visit');
+  console.log('   Current URL:', currentUrl);
+  
+  // Check for any URL-modifying scripts
+  const scripts = Array.from(document.scripts);
+  const suspiciousScripts = scripts.filter(script => 
+    script.src && (
+      script.src.includes('analytics') || 
+      script.src.includes('tracking') ||
+      script.src.includes('redirect')
+    )
+  );
+  
+  if (suspiciousScripts.length > 0) {
+    console.log('⚠️  Potential URL-modifying scripts found:');
+    suspiciousScripts.forEach(script => console.log(`   ${script.src}`));
+  } else {
+    console.log('✅ No suspicious URL-modifying scripts detected');
+  }
+  
+  console.log('🔍 === END URL DEBUG ===');
+  
+  return {
+    currentUrl,
+    search,
+    allParams: Object.fromEntries(params.entries()),
+    utmParams
+  };
+}
+
+/*
+  Function: preserveUtmParameters
+  Purpose: Ensures UTM parameters stay in the URL and aren't lost during page interactions
+           Can be called to restore UTM parameters if they disappear
+  
+  External APIs used:
+  - History API: Modify URL without page reload
+  - URLSearchParams (Web API): handle URL parameters
+*/
+function preserveUtmParameters(utmParams = null) {
+  console.log('🔒 Preserving UTM parameters in URL...');
+  
+  // Get current UTM parameters if not provided
+  if (!utmParams) {
+    utmParams = getUtmParameters();
+  }
+  
+  if (Object.keys(utmParams).length === 0) {
+    console.log('❌ No UTM parameters to preserve');
+    return false;
+  }
+  
+  const currentUrl = new URL(window.location.href);
+  let modified = false;
+  
+  // Ensure all UTM parameters are in the URL
+  Object.keys(utmParams).forEach(key => {
+    if (!currentUrl.searchParams.has(key) && utmParams[key]) {
+      currentUrl.searchParams.set(key, utmParams[key]);
+      modified = true;
+      console.log(`✅ Restored parameter: ${key}=${utmParams[key]}`);
+    }
+  });
+  
+  if (modified) {
+    // Update URL without page reload
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, '', currentUrl.toString());
+      console.log('🔄 URL updated with preserved UTM parameters');
+      console.log('📍 New URL:', currentUrl.toString());
+    } else {
+      console.log('⚠️  History API not available - cannot preserve URL');
+    }
+  } else {
+    console.log('✅ All UTM parameters already present in URL');
+  }
+  
+  return modified;
+}
+
+/*
+  Function: diagnoseGitHubPagesIssues
+  Purpose: Diagnoses common GitHub Pages issues with custom domains and URL parameters
+           Specifically checks for redirect chains and DNS-level parameter stripping
+  
+  External APIs used:
+  - Fetch API: Test redirect behavior
+  - Performance API: Check for redirect timing
+*/
+async function diagnoseGitHubPagesIssues() {
+  console.log('🏠 === GITHUB PAGES DOMAIN DIAGNOSIS ===');
+  
+  const currentDomain = window.location.hostname;
+  const isCustomDomain = !currentDomain.includes('github.io');
+  const isLocalhost = currentDomain.includes('localhost') || currentDomain.includes('127.0.0.1');
+  
+  console.log('🌐 Domain Info:');
+  console.log('   Current domain:', currentDomain);
+  console.log('   Custom domain:', isCustomDomain ? '✅ Yes' : '❌ No (using github.io)');
+  console.log('   Localhost:', isLocalhost ? '✅ Yes' : '❌ No');
+  console.log('');
+  
+  if (isLocalhost) {
+    console.log('💡 Running on localhost - GitHub Pages issues won\'t occur here');
+    console.log('🔧 Test on your actual domain to diagnose GitHub Pages issues');
+    console.log('🏠 === END GITHUB PAGES DIAGNOSIS ===');
+    return;
+  }
+  
+  // Check for common GitHub Pages + custom domain issues
+  console.log('🔍 Common GitHub Pages Issues:');
+  
+  // Check 1: HTTPS redirect
+  if (window.location.protocol === 'http:') {
+    console.error('❌ Using HTTP - GitHub Pages forces HTTPS redirects');
+    console.log('   🔧 This redirect may strip URL parameters');
+    console.log('   💡 Always use HTTPS URLs for your campaigns');
+  } else {
+    console.log('✅ Using HTTPS - good for parameter preservation');
+  }
+  
+  // Check 2: WWW redirect
+  const hasWww = currentDomain.startsWith('www.');
+  console.log('🌐 WWW Configuration:');
+  console.log('   Has www:', hasWww ? '✅ Yes' : '❌ No');
+  console.log('   💡 Ensure your DNS and GitHub Pages settings match');
+  
+  // Check 3: Redirect chain detection
+  console.log('🔄 Testing for redirect chains...');
+  
+  try {
+    // Test both www and non-www versions
+    const testUrls = [
+      `https://${currentDomain}/?test_param=github_pages_test`,
+      `https://www.${currentDomain.replace('www.', '')}/?test_param=github_pages_test`
+    ];
+    
+    for (const testUrl of testUrls) {
+      try {
+        const response = await fetch(testUrl, { 
+          method: 'HEAD', 
+          redirect: 'manual' 
+        });
+        
+        console.log(`📊 ${testUrl}:`);
+        console.log(`   Status: ${response.status}`);
+        
+        if (response.status >= 300 && response.status < 400) {
+          const location = response.headers.get('location');
+          console.log(`   ⚠️  Redirects to: ${location}`);
+          
+          // Check if redirect preserves parameters
+          if (location && !location.includes('test_param')) {
+            console.error('   ❌ REDIRECT STRIPS PARAMETERS!');
+          } else {
+            console.log('   ✅ Redirect preserves parameters');
+          }
+        }
+      } catch (e) {
+        console.log(`   ❌ Could not test ${testUrl}: ${e.message}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Could not test redirect behavior:', error.message);
+  }
+  
+  // Check 4: DNS provider specific issues
+  console.log('🏷️  DNS Provider Issues:');
+  console.log('   Porkbun detected - check these settings:');
+  console.log('   • Ensure CNAME points directly to your-username.github.io');
+  console.log('   • Disable any "URL forwarding" or "redirect" features');
+  console.log('   • Check if "HTTPS redirect" is enabled at DNS level');
+  console.log('   • Verify no "www redirect" is configured at DNS level');
+  
+  // Check 5: GitHub Pages configuration
+  console.log('⚙️  GitHub Pages Configuration:');
+  console.log('   Check your GitHub repository settings:');
+  console.log('   • Pages > Custom domain should match exactly: ' + currentDomain);
+  console.log('   • "Enforce HTTPS" should be enabled');
+  console.log('   • No trailing slashes in custom domain setting');
+  
+  console.log('');
+  console.log('🔧 SOLUTIONS FOR PARAMETER STRIPPING:');
+  console.log('   1. Always use HTTPS URLs in campaigns');
+  console.log('   2. Match www/non-www exactly in all settings');
+  console.log('   3. Disable any DNS-level redirects');
+  console.log('   4. Use preserveUtmParameters() as a fallback');
+  console.log('   5. Consider using fragment identifiers (#) instead of query params');
+  
+  console.log('🏠 === END GITHUB PAGES DIAGNOSIS ===');
+  
+  return {
+    domain: currentDomain,
+    isCustomDomain,
+    isLocalhost,
+    protocol: window.location.protocol,
+    hasWww
+  };
+}
+
 function init() {
   applyCtaUrl();
   
@@ -1002,6 +1238,7 @@ function init() {
   console.log('   showTrafficSourceReport() - View current traffic source');
   console.log('   diagnoseMetaPixel() - Full Meta Pixel diagnostic');
   console.log('   testFacebookConnectivity() - Test Facebook connectivity');
+  console.log('   diagnoseGitHubPagesIssues() - Check GitHub Pages domain issues');
   console.log('');
   console.log('🧪 TESTING:');
   console.log('   sendTestEvent() - Send test events with codes');
@@ -1011,6 +1248,8 @@ function init() {
   console.log('');
   console.log('🔗 UTILITIES:');
   console.log('   generateUtmUrls() - Generate tracking URLs');
+  console.log('   debugUrlParameters() - Debug URL parameter issues');
+  console.log('   preserveUtmParameters() - Keep UTM params in URL');
   console.log('');
   console.log('🚨 TROUBLESHOOTING ADS MANAGER:');
   console.log('   1. Run: sendAdsManagerTest()');
