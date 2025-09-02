@@ -15,8 +15,9 @@
 /*
   Function: getUtmParameters
   Purpose: Extracts UTM parameters from the current URL for Meta Pixel tracking
+           Enhanced with source detection and automatic parameter enrichment
   
-  Returns: Object containing UTM parameters (utm_source, utm_medium, utm_campaign, etc.)
+  Returns: Object containing UTM parameters with source-specific enhancements
   
   External APIs used:
   - URLSearchParams (Web API): parse URL query parameters
@@ -34,7 +35,94 @@ function getUtmParameters() {
     }
   });
   
+  // Auto-detect source if not explicitly set
+  if (!utmParams.utm_source) {
+    const referrer = document.referrer.toLowerCase();
+    const hostname = window.location.hostname.toLowerCase();
+    
+    if (referrer.includes('instagram.com') || referrer.includes('ig.me')) {
+      utmParams.utm_source = 'instagram';
+      utmParams.utm_medium = utmParams.utm_medium || 'social';
+    } else if (referrer.includes('facebook.com') || referrer.includes('fb.me')) {
+      utmParams.utm_source = 'facebook';
+      utmParams.utm_medium = utmParams.utm_medium || 'social';
+    } else if (referrer.includes('youtube.com') || referrer.includes('twitch.tv') || referrer.includes('live')) {
+      utmParams.utm_source = 'livestream';
+      utmParams.utm_medium = utmParams.utm_medium || 'video';
+    }
+  }
+  
+  // Add timestamp for tracking
+  if (Object.keys(utmParams).length > 0) {
+    utmParams.tracking_timestamp = new Date().toISOString();
+  }
+  
   return utmParams;
+}
+
+/*
+  Function: getTrafficSourceInfo
+  Purpose: Provides detailed information about the current traffic source
+           Returns both UTM parameters and source classification
+  
+  Returns: Object with source details and recommended UTM parameters
+*/
+function getTrafficSourceInfo() {
+  const utmParams = getUtmParameters();
+  const currentUrl = window.location.href;
+  const referrer = document.referrer;
+  
+  // Determine primary source
+  let primarySource = 'direct';
+  let sourceDetails = {};
+  
+  if (utmParams.utm_source) {
+    primarySource = utmParams.utm_source.toLowerCase();
+  } else if (referrer) {
+    if (referrer.includes('instagram')) primarySource = 'instagram';
+    else if (referrer.includes('facebook')) primarySource = 'facebook';
+    else if (referrer.includes('youtube') || referrer.includes('twitch')) primarySource = 'livestream';
+    else primarySource = 'referral';
+  }
+  
+  // Source-specific configurations
+  const sourceConfigs = {
+    livestream: {
+      icon: '🎥',
+      name: 'Live Stream',
+      recommended_medium: 'video',
+      recommended_campaign: 'live_promo'
+    },
+    instagram: {
+      icon: '📸',
+      name: 'Instagram',
+      recommended_medium: 'social',
+      recommended_campaign: 'ig_promo'
+    },
+    facebook: {
+      icon: '👥',
+      name: 'Facebook',
+      recommended_medium: 'social',
+      recommended_campaign: 'fb_promo'
+    },
+    direct: {
+      icon: '🔗',
+      name: 'Direct',
+      recommended_medium: 'direct',
+      recommended_campaign: 'direct_visit'
+    }
+  };
+  
+  sourceDetails = sourceConfigs[primarySource] || sourceConfigs.direct;
+  
+  return {
+    primarySource,
+    sourceDetails,
+    utmParams,
+    currentUrl,
+    referrer,
+    isTracked: Object.keys(utmParams).length > 0
+  };
 }
 
 /*
@@ -178,8 +266,12 @@ async function setupMetaPixelTracking() {
     
     console.log('✅ Primary CTA button found:', cta);
     
-    // Get UTM parameters for all events
-    const utmParams = getUtmParameters();
+    // Get comprehensive traffic source information
+    const trafficInfo = getTrafficSourceInfo();
+    const utmParams = trafficInfo.utmParams;
+    
+    console.log('📊 Traffic Source Info:', trafficInfo);
+    console.log(`${trafficInfo.sourceDetails.icon} Primary Source: ${trafficInfo.sourceDetails.name}`);
     console.log('📊 UTM parameters for tracking:', utmParams);
     
     // Track ViewContent event when page is fully loaded (engagement event)
@@ -188,6 +280,8 @@ async function setupMetaPixelTracking() {
       content_category: 'Gaming Landing',
       content_type: 'product',
       currency: 'BRL',
+      traffic_source: trafficInfo.primarySource,
+      source_name: trafficInfo.sourceDetails.name,
       ...utmParams
     };
     
@@ -224,6 +318,9 @@ async function setupMetaPixelTracking() {
           content_name: 'PopDez Interest',
           content_category: 'Gaming Lead',
           currency: 'BRL',
+          traffic_source: trafficInfo.primarySource,
+          source_name: trafficInfo.sourceDetails.name,
+          engagement_type: scrollThreshold ? 'scroll' : 'time',
           ...utmParams
         };
         trackMetaPixelEvent('Lead', leadData, 'User showed engagement');
@@ -235,12 +332,12 @@ async function setupMetaPixelTracking() {
     
     window.addEventListener('scroll', handleScroll);
     
-    // Track AddToCart event when CTA is clicked (DEBUG MODE - NO REDIRECT)
+    // Track AddToCart event when CTA is clicked with delayed redirect
     cta.addEventListener('click', function(event) {
-      // Prevent default link behavior
+      // Prevent default link behavior to control timing
       event.preventDefault();
       
-      console.log('🐛 DEBUG MODE: CTA button clicked! Event tracking only...');
+      console.log('🎯 CTA button clicked! Tracking event before redirect...');
       
       const addToCartData = {
         content_name: 'PopDez Bonus Exclusivo',
@@ -248,26 +345,50 @@ async function setupMetaPixelTracking() {
         content_type: 'product',
         currency: 'BRL',
         value: 1.00, // Symbolic value for bonus
+        traffic_source: trafficInfo.primarySource,
+        source_name: trafficInfo.sourceDetails.name,
+        conversion_step: 'cta_click',
         ...utmParams
       };
       
       // Track the event
-      console.log('📊 Event data being sent:', addToCartData);
-      const eventSent = trackMetaPixelEvent('AddToCart', addToCartData, 'CTA button clicked (DEBUG)');
+      const eventSent = trackMetaPixelEvent('AddToCart', addToCartData, 'CTA button clicked');
       
-      // Debug information
-      console.log('🔍 Meta Pixel availability check:');
-      console.log('   - fbq function exists:', typeof window.fbq !== 'undefined');
-      console.log('   - fbq loaded:', window.fbq ? window.fbq.loaded : 'N/A');
-      console.log('   - fbq version:', window.fbq ? window.fbq.version : 'N/A');
+      // Get destination URL from data attribute
+      const destinationUrl = cta.getAttribute('data-destination');
       
-      // Check if event was added to fbq queue
-      if (window.fbq && window.fbq.queue) {
-        console.log('📋 Current fbq queue length:', window.fbq.queue.length);
+      if (destinationUrl) {
+        // Wait for Meta Pixel event to be sent before redirecting
+        // Use both timeout and fbq callback for maximum compatibility
+        let redirected = false;
+        
+        const performRedirect = () => {
+          if (!redirected) {
+            redirected = true;
+            console.log('🚀 Redirecting to:', destinationUrl);
+            window.location.href = destinationUrl;
+          }
+        };
+        
+        // Primary method: Wait for fbq to process (300ms is usually enough)
+        setTimeout(performRedirect, 300);
+        
+        // Fallback: Ensure redirect happens even if event fails (1 second max)
+        setTimeout(performRedirect, 1000);
+        
+        // Optional: Try to use fbq callback if available (not always supported)
+        try {
+          if (window.fbq && typeof window.fbq.queue !== 'undefined') {
+            window.fbq('track', 'AddToCart', addToCartData, {
+              eventID: 'redirect_' + Date.now() // Prevent duplicate events
+            });
+          }
+        } catch (e) {
+          console.log('📝 Note: fbq callback not available, using timeout method');
+        }
+      } else {
+        console.error('❌ No destination URL found in data-destination attribute');
       }
-      
-      console.log('✅ DEBUG: Event tracking completed. No redirect performed.');
-      console.log('🔧 Check Network tab for requests to facebook.com/tr');
     });
     
     console.log('✅ Meta Pixel tracking setup completed successfully');
@@ -503,11 +624,105 @@ function diagnoseMetaPixel() {
   console.log('🔧 === END DIAGNOSTIC REPORT ===');
 }
 
-// Make diagnostic function globally available
-window.diagnoseMetaPixel = diagnoseMetaPixel;
+/*
+  Function: generateUtmUrls
+  Purpose: Generates example URLs with proper UTM parameters for each traffic source
+           Helps with campaign setup and link sharing
+  
+  Returns: Object with example URLs for each source
+*/
+function generateUtmUrls() {
+  const baseUrl = window.location.origin + window.location.pathname;
+  
+  const utmTemplates = {
+    livestream: {
+      utm_source: 'livestream',
+      utm_medium: 'video',
+      utm_campaign: 'live_promo',
+      utm_content: 'cta_button'
+    },
+    instagram: {
+      utm_source: 'instagram',
+      utm_medium: 'social',
+      utm_campaign: 'ig_promo',
+      utm_content: 'story_link'
+    },
+    facebook: {
+      utm_source: 'facebook',
+      utm_medium: 'social',
+      utm_campaign: 'fb_promo',
+      utm_content: 'post_link'
+    }
+  };
+  
+  const generatedUrls = {};
+  
+  Object.keys(utmTemplates).forEach(source => {
+    const params = new URLSearchParams(utmTemplates[source]);
+    generatedUrls[source] = `${baseUrl}?${params.toString()}`;
+  });
+  
+  console.log('🔗 === UTM TRACKING URLS ===');
+  console.log('📋 Use these URLs for your campaigns:');
+  console.log('');
+  
+  Object.keys(generatedUrls).forEach(source => {
+    const config = utmTemplates[source];
+    const sourceInfo = {
+      livestream: { icon: '🎥', name: 'Live Stream' },
+      instagram: { icon: '📸', name: 'Instagram' },
+      facebook: { icon: '👥', name: 'Facebook' }
+    }[source];
+    
+    console.log(`${sourceInfo.icon} ${sourceInfo.name}:`);
+    console.log(`   ${generatedUrls[source]}`);
+    console.log('');
+  });
+  
+  console.log('💡 Tips:');
+  console.log('   - Customize utm_campaign for different promotions');
+  console.log('   - Use utm_content to track specific posts/stories');
+  console.log('   - Add utm_term for A/B testing different messages');
+  console.log('🔗 === END UTM URLS ===');
+  
+  return generatedUrls;
+}
 
-// Make test function globally available for console debugging
+/*
+  Function: showTrafficSourceReport
+  Purpose: Displays a comprehensive report of current traffic source and UTM tracking
+           Useful for debugging and verification
+*/
+function showTrafficSourceReport() {
+  const trafficInfo = getTrafficSourceInfo();
+  
+  console.log('📊 === TRAFFIC SOURCE REPORT ===');
+  console.log(`${trafficInfo.sourceDetails.icon} Current Source: ${trafficInfo.sourceDetails.name}`);
+  console.log('📍 Current URL:', trafficInfo.currentUrl);
+  console.log('🔗 Referrer:', trafficInfo.referrer || 'Direct/None');
+  console.log('✅ UTM Tracking:', trafficInfo.isTracked ? 'Active' : 'Not Detected');
+  console.log('');
+  
+  if (trafficInfo.isTracked) {
+    console.log('📊 UTM Parameters:');
+    Object.keys(trafficInfo.utmParams).forEach(key => {
+      console.log(`   ${key}: ${trafficInfo.utmParams[key]}`);
+    });
+  } else {
+    console.log('💡 No UTM parameters detected. Use generateUtmUrls() to create tracking links.');
+  }
+  
+  console.log('📊 === END REPORT ===');
+  
+  return trafficInfo;
+}
+
+// Make all functions globally available for console debugging
+window.diagnoseMetaPixel = diagnoseMetaPixel;
 window.sendTestEvent = sendTestEvent;
+window.generateUtmUrls = generateUtmUrls;
+window.showTrafficSourceReport = showTrafficSourceReport;
+window.getTrafficSourceInfo = getTrafficSourceInfo;
 
 function init() {
   applyCtaUrl();
@@ -516,10 +731,13 @@ function init() {
   initCarousel();
   
   // Log helpful debug info
-  console.log('🔧 Debug: Call diagnoseMetaPixel() in console for full diagnostic');
-  console.log('🔧 Debug: Call sendTestEvent() to test individual events');
-  console.log('🔧 Debug: Check Network tab for fbevents requests');
-  console.log('🔧 Debug: Use Meta Pixel Helper browser extension for validation');
+  console.log('🔧 Debug Commands Available:');
+  console.log('   📊 showTrafficSourceReport() - View current traffic source');
+  console.log('   🔗 generateUtmUrls() - Generate tracking URLs');
+  console.log('   🧪 diagnoseMetaPixel() - Full Meta Pixel diagnostic');
+  console.log('   🎯 sendTestEvent() - Test individual events');
+  console.log('🔧 Also: Check Network tab for fbevents requests');
+  console.log('🔧 Install Meta Pixel Helper browser extension for validation');
 }
 
 if (document.readyState === 'loading') {
