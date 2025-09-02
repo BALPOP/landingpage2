@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oferta Exclusiva</title>
+  <link rel="stylesheet" href="./style.css">
+  
+  <!-- Meta Pixel Code -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1032961382302053');
+  
+  // Extract UTM parameters for PageView tracking
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const utmParams = {};
+    const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+    
+    utmKeys.forEach(key => {
+      if (params.has(key)) {
+        utmParams[key] = params.get(key);
+      }
+    });
+    
+    // Track PageView with UTM parameters
+    fbq('track', 'PageView', utmParams);
+  })();
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=1032961382302053&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- End Meta Pixel Code -->
+</head>
+<body>
+  <main class="lp-container" role="main">
+    <section class="primary-title-section">
+      <img src="./POPDEZ LOGO.png" alt="PopDez Logo" class="site-logo" />
+      <h1 class="primary-title">Ganhe Seu Bônus Exclusivo</h1>
+    </section>
+
+    <section class="hero" aria-labelledby="countdown-label">
+      <div class="hero-content">
+        <div class="countdown-container">
+          <div class="countdown-label" id="countdown-label">OFERTA EXPIRA EM:</div>
+          <div class="countdown-timer" id="countdown-timer">
+            <div class="time-unit">
+              <span class="time-value" id="hours">24</span>
+              <span class="time-label">Horas</span>
+            </div>
+            <div class="time-separator">:</div>
+            <div class="time-unit">
+              <span class="time-value" id="minutes">00</span>
+              <span class="time-label">Min</span>
+            </div>
+            <div class="time-separator">:</div>
+            <div class="time-unit">
+              <span class="time-value" id="seconds">00</span>
+              <span class="time-label">Seg</span>
+            </div>
+          </div>
+        </div>
+        <p class="subtitle">Oferta por tempo limitado. Aproveite agora.</p>
+        <a id="primary-cta" class="btn btn-primary" href="#" aria-label="Reivindique seu bônus agora!">
+          Reivindique seu bônus agora!
+        </a>
+      </div>
+    </section>
+
+    <section class="image-carousel" aria-label="Promoções PopDez">
+      <div class="carousel-container">
+        <button class="carousel-arrow carousel-arrow-left" aria-label="Imagem anterior">‹</button>
+        <div class="carousel-track">
+          <img src="./POP 1.png" alt="PopDez Roleta Diária" class="carousel-image active" />
+          <img src="./POP 2.png" alt="PopDez Roleta Aniversário" class="carousel-image" />
+          <img src="./POP 3.png" alt="PopDez Roleta Nível VIP" class="carousel-image" />
+          <img src="./POP 4.png" alt="PopDez Roleta Comissão" class="carousel-image" />
+          <img src="./pop 5.png" alt="PopDez Roleta Slot Jackpot" class="carousel-image" />
+        </div>
+        <button class="carousel-arrow carousel-arrow-right" aria-label="Próxima imagem">›</button>
+      </div>
+      <div class="carousel-indicators">
+        <button class="indicator active" aria-label="Imagem 1"></button>
+        <button class="indicator" aria-label="Imagem 2"></button>
+        <button class="indicator" aria-label="Imagem 3"></button>
+        <button class="indicator" aria-label="Imagem 4"></button>
+        <button class="indicator" aria-label="Imagem 5"></button>
+      </div>
+    </section>
+
+    <section class="features" aria-label="Principais benefícios">
+      <div class="features-grid">
+        <article class="card">
+          <span class="chip">Bônus de Boas‑Vindas</span>
+          <h3 class="card-title">Gire a roleta e ganhe giros grátis</h3>
+          <p class="card-text">Entre e comece com vantagens exclusivas, sem complicação.</p>
+        </article>
+        <article class="card">
+          <span class="chip">Jogue Grátis</span>
+          <h3 class="card-title">Nenhuma compra necessária</h3>
+          <p class="card-text">Divirta-se agora mesmo e descubra a experiência completa.</p>
+        </article>
+        <article class="card">
+          <span class="chip">Moedas Diárias</span>
+          <h3 class="card-title">Receba recompensas todos os dias</h3>
+          <p class="card-text">Entre diariamente e acumule mais chances de ganhar.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="./script.js" defer></script>
+</body>
+</html> 
