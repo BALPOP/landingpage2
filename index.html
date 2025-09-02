@@ -8,8 +8,6 @@
   
   <!-- Meta Pixel Code -->
   <script>
-  console.log('🔄 Loading Meta Pixel...');
-  
   !function(f,b,e,v,n,t,s)
   {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -18,41 +16,8 @@
   t.src=v;s=b.getElementsByTagName(e)[0];
   s.parentNode.insertBefore(t,s)}(window, document,'script',
   'https://connect.facebook.net/en_US/fbevents.js');
-  
-  console.log('📡 Meta Pixel script loaded, initializing...');
   fbq('init', '1032961382302053');
-  console.log('✅ Meta Pixel initialized with ID: 1032961382302053');
-  
-  // Extract UTM parameters for PageView tracking
-  (function() {
-    const params = new URLSearchParams(window.location.search);
-    const utmParams = {};
-    const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
-    
-    utmKeys.forEach(key => {
-      if (params.has(key)) {
-        utmParams[key] = params.get(key);
-      }
-    });
-    
-    console.log('📊 Tracking PageView with UTM parameters:', utmParams);
-    
-    // Track PageView with UTM parameters
-    fbq('track', 'PageView', utmParams);
-    
-    console.log('✅ PageView event tracked successfully');
-  })();
-  
-  // Test if fbq is available globally
-  window.addEventListener('load', function() {
-    console.log('🧪 Testing Meta Pixel availability after page load...');
-    if (typeof fbq !== 'undefined') {
-      console.log('✅ Meta Pixel (fbq) is available globally');
-      console.log('fbq function:', fbq);
-    } else {
-      console.error('❌ Meta Pixel (fbq) is NOT available globally');
-    }
-  });
+  fbq('track', 'PageView');
   </script>
   <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=1032961382302053&ev=PageView&noscript=1"
