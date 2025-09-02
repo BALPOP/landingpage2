@@ -836,6 +836,57 @@ function showTrafficSourceReport() {
 }
 
 /*
+  Function: keepUtmInUrl
+  Purpose: Simple function to keep UTM parameters persistent in the URL
+           Stores them when first detected and restores them if they disappear
+  
+  External APIs used:
+  - Session Storage: Store UTM parameters
+  - History API: Update URL without page reload
+*/
+function keepUtmInUrl() {
+  const currentUtm = getUtmParameters();
+  const hasUtmNow = Object.keys(currentUtm).length > 0;
+  
+  // If we have UTM parameters now, store them
+  if (hasUtmNow) {
+    try {
+      sessionStorage.setItem('persistent_utm', JSON.stringify(currentUtm));
+      console.log('✅ UTM parameters stored:', currentUtm);
+    } catch (e) {
+      console.log('⚠️ Could not store UTM parameters');
+    }
+    return;
+  }
+  
+  // If we don't have UTM parameters now, check if we had them before
+  try {
+    const storedUtm = sessionStorage.getItem('persistent_utm');
+    if (storedUtm) {
+      const utmParams = JSON.parse(storedUtm);
+      
+      // Add them back to the URL
+      const url = new URL(window.location.href);
+      let modified = false;
+      
+      Object.keys(utmParams).forEach(key => {
+        if (key !== 'tracking_timestamp' && utmParams[key]) {
+          url.searchParams.set(key, utmParams[key]);
+          modified = true;
+        }
+      });
+      
+      if (modified && window.history && window.history.replaceState) {
+        window.history.replaceState({}, '', url.toString());
+        console.log('🔄 UTM parameters restored to URL:', utmParams);
+      }
+    }
+  } catch (e) {
+    console.log('⚠️ Could not restore UTM parameters');
+  }
+}
+
+/*
   Function: setupTestEventsMode
   Purpose: Sets up Test Events mode with proper test event codes for Ads Manager visibility
            This helps events show up in Facebook's Test Events tool
@@ -956,6 +1007,7 @@ window.verifyBasicPageView = verifyBasicPageView;
 window.testFacebookConnectivity = testFacebookConnectivity;
 window.setupTestEventsMode = setupTestEventsMode;
 window.sendAdsManagerTest = sendAdsManagerTest;
+window.keepUtmInUrl = keepUtmInUrl;
 window.diagnoseGitHubPagesIssues = diagnoseGitHubPagesIssues;
 
 /*
@@ -1110,6 +1162,14 @@ async function diagnoseGitHubPagesIssues() {
 }
 
 function init() {
+  // Keep UTM parameters persistent in URL
+  keepUtmInUrl();
+  
+  // Check every 2 seconds to ensure UTM parameters stay in URL
+  setInterval(() => {
+    keepUtmInUrl();
+  }, 2000);
+  
   applyCtaUrl();
   
   // Verify basic PageView fired
@@ -1137,6 +1197,7 @@ function init() {
   console.log('');
   console.log('🔗 UTILITIES:');
   console.log('   generateUtmUrls() - Generate tracking URLs');
+  console.log('   keepUtmInUrl() - Keep UTM parameters in URL');
   console.log('');
   console.log('🚨 TROUBLESHOOTING ADS MANAGER:');
   console.log('   1. Run: sendAdsManagerTest()');
