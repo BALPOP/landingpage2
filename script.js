@@ -38,6 +38,71 @@ function getUtmParameters() {
 }
 
 /*
+  Function: waitForFbq
+  Purpose: Waits for Meta Pixel (fbq) to be available with timeout and retry logic
+  
+  Returns: Promise that resolves when fbq is available or rejects on timeout
+  
+  External APIs used:
+  - fbq (Meta Pixel): Facebook pixel tracking function
+*/
+function waitForFbq(maxAttempts = 50, interval = 100) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    
+    function checkFbq() {
+      attempts++;
+      console.log(`🔍 Checking for Meta Pixel availability (attempt ${attempts}/${maxAttempts})`);
+      
+      if (typeof window.fbq !== 'undefined' && window.fbq.loaded) {
+        console.log('✅ Meta Pixel (fbq) is ready and loaded!');
+        resolve(window.fbq);
+        return;
+      }
+      
+      if (attempts >= maxAttempts) {
+        console.error('❌ Meta Pixel (fbq) failed to load within timeout period');
+        reject(new Error('Meta Pixel timeout'));
+        return;
+      }
+      
+      setTimeout(checkFbq, interval);
+    }
+    
+    checkFbq();
+  });
+}
+
+/*
+  Function: trackMetaPixelEvent
+  Purpose: Safely tracks Meta Pixel events with error handling and logging
+  
+  Inputs:
+  - eventName: String name of the event to track (e.g., 'AddToCart', 'ViewContent')
+  - eventData: Object containing event parameters
+  - description: Human-readable description for logging
+  
+  External APIs used:
+  - fbq (Meta Pixel): Facebook pixel tracking function for conversion events
+*/
+function trackMetaPixelEvent(eventName, eventData = {}, description = '') {
+  try {
+    if (typeof window.fbq === 'undefined') {
+      console.error('❌ Meta Pixel (fbq) not available for event:', eventName);
+      return false;
+    }
+    
+    console.log(`🎯 Tracking ${eventName} event${description ? ': ' + description : ''}`, eventData);
+    window.fbq('track', eventName, eventData);
+    console.log(`✅ ${eventName} event tracked successfully!`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error tracking ${eventName} event:`, error);
+    return false;
+  }
+}
+
+/*
   Function: buildTrackedUrl
   Purpose: Builds destination URL with inherited parameters from the current page
            Preserves existing destination URL parameters (ch, fbPixelId) and adds tracking parameters
@@ -84,56 +149,106 @@ function applyCtaUrl() {
 
 /*
   Function: setupMetaPixelTracking
-  Purpose: Sets up Meta Pixel AddToCart event tracking for the primary CTA button
-           Includes UTM parameters for traffic source segmentation
+  Purpose: Sets up comprehensive Meta Pixel event tracking for user engagement
+           Includes ViewContent, AddToCart, and Lead events with UTM parameters
   
   External APIs used:
   - fbq (Meta Pixel): Facebook pixel tracking function for conversion events
 */
-function setupMetaPixelTracking() {
-  console.log('Setting up Meta Pixel tracking...');
+async function setupMetaPixelTracking() {
+  console.log('🚀 Setting up Meta Pixel tracking...');
   
-  const cta = document.getElementById('primary-cta');
-  if (!cta) {
-    console.error('Primary CTA button not found!');
-    return;
-  }
-  
-  console.log('Primary CTA button found:', cta);
-  
-  // Add click event listener to track AddToCart event
-  cta.addEventListener('click', function(event) {
-    console.log('CTA button clicked!');
+  try {
+    // Wait for Meta Pixel to be ready
+    await waitForFbq();
     
-    // Check if fbq (Facebook Pixel) is available
-    if (typeof fbq !== 'undefined') {
-      console.log('Meta Pixel (fbq) is available');
+    const cta = document.getElementById('primary-cta');
+    if (!cta) {
+      console.error('❌ Primary CTA button not found!');
+      return;
+    }
+    
+    console.log('✅ Primary CTA button found:', cta);
+    
+    // Get UTM parameters for all events
+    const utmParams = getUtmParameters();
+    console.log('📊 UTM parameters for tracking:', utmParams);
+    
+    // Track ViewContent event when page is fully loaded (engagement event)
+    const viewContentData = {
+      content_name: 'PopDez Landing Page',
+      content_category: 'Gaming Landing',
+      content_type: 'product',
+      currency: 'BRL',
+      ...utmParams
+    };
+    
+    // Delay ViewContent to ensure user actually viewed the content
+    setTimeout(() => {
+      trackMetaPixelEvent('ViewContent', viewContentData, 'Landing page viewed');
+    }, 2000);
+    
+    // Track Lead event when user shows interest (scrolling or time spent)
+    let leadTracked = false;
+    let scrollThreshold = false;
+    let timeThreshold = false;
+    
+    // Track scroll engagement
+    function handleScroll() {
+      if (!scrollThreshold && window.scrollY > 300) {
+        scrollThreshold = true;
+        console.log('📜 User scrolled past 300px');
+        checkLeadConditions();
+      }
+    }
+    
+    // Track time engagement (10 seconds)
+    setTimeout(() => {
+      timeThreshold = true;
+      console.log('⏰ User spent 10+ seconds on page');
+      checkLeadConditions();
+    }, 10000);
+    
+    function checkLeadConditions() {
+      if (!leadTracked && (scrollThreshold || timeThreshold)) {
+        leadTracked = true;
+        const leadData = {
+          content_name: 'PopDez Interest',
+          content_category: 'Gaming Lead',
+          currency: 'BRL',
+          ...utmParams
+        };
+        trackMetaPixelEvent('Lead', leadData, 'User showed engagement');
+        
+        // Remove scroll listener to prevent multiple triggers
+        window.removeEventListener('scroll', handleScroll);
+      }
+    }
+    
+    window.addEventListener('scroll', handleScroll);
+    
+    // Track AddToCart event when CTA is clicked
+    cta.addEventListener('click', function(event) {
+      console.log('🎯 CTA button clicked!');
       
-      // Get UTM parameters for traffic source tracking
-      const utmParams = getUtmParameters();
-      console.log('UTM parameters:', utmParams);
-      
-      // Build event data with UTM parameters
-      const eventData = {
+      const addToCartData = {
         content_name: 'PopDez Bonus Exclusivo',
         content_category: 'Gaming Bonus',
+        content_type: 'product',
         currency: 'BRL',
-        ...utmParams // Spread UTM parameters into the event data
+        value: 1.00, // Symbolic value for bonus
+        ...utmParams
       };
       
-      console.log('Firing AddToCart event with data:', eventData);
-      
-      // Track AddToCart event when the main CTA button is clicked
-      fbq('track', 'AddToCart', eventData);
-      
-      console.log('✅ Meta Pixel: AddToCart event tracked successfully!');
-    } else {
-      console.error('❌ Meta Pixel (fbq) not available - check if Meta Pixel loaded correctly');
-      console.log('Available global functions:', Object.keys(window).filter(key => key.includes('fb')));
-    }
-  });
-  
-  console.log('✅ Meta Pixel tracking setup completed');
+      trackMetaPixelEvent('AddToCart', addToCartData, 'CTA button clicked');
+    });
+    
+    console.log('✅ Meta Pixel tracking setup completed successfully');
+    
+  } catch (error) {
+    console.error('❌ Failed to setup Meta Pixel tracking:', error);
+    console.log('🔧 Available global functions:', Object.keys(window).filter(key => key.includes('fb')));
+  }
 }
 
 function startCountdown() {
@@ -263,11 +378,40 @@ function initCarousel() {
   startAutoRotation();
 }
 
+/*
+  Function: sendTestEvent
+  Purpose: Sends a test event to Meta Pixel for debugging purposes
+           Can be called from browser console to verify pixel functionality
+  
+  External APIs used:
+  - fbq (Meta Pixel): Facebook pixel tracking function for test events
+*/
+function sendTestEvent() {
+  console.log('🧪 Sending test event to Meta Pixel...');
+  
+  const testData = {
+    content_name: 'Test Event',
+    content_category: 'Debug',
+    currency: 'BRL',
+    test_event_code: 'TEST_' + Date.now()
+  };
+  
+  return trackMetaPixelEvent('Purchase', testData, 'Manual test event');
+}
+
+// Make test function globally available for console debugging
+window.sendTestEvent = sendTestEvent;
+
 function init() {
   applyCtaUrl();
   setupMetaPixelTracking();
   startCountdown();
   initCarousel();
+  
+  // Log helpful debug info
+  console.log('🔧 Debug: Call sendTestEvent() in console to test Meta Pixel');
+  console.log('🔧 Debug: Check Network tab for fbevents requests');
+  console.log('🔧 Debug: Use Meta Pixel Helper browser extension for validation');
 }
 
 if (document.readyState === 'loading') {
