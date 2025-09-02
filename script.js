@@ -144,7 +144,15 @@ function applyCtaUrl() {
   if (!cta) return;
   const params = new URLSearchParams(window.location.search);
   const tracked = buildTrackedUrl(DESTINATION_URL, params);
-  cta.setAttribute('href', tracked);
+  
+  // Store the destination URL for programmatic redirect after event tracking
+  cta.setAttribute('data-destination', tracked);
+  
+  // Remove href to prevent immediate navigation - we'll handle redirect manually
+  cta.removeAttribute('href');
+  
+  // Add visual indication that it's clickable
+  cta.style.cursor = 'pointer';
 }
 
 /*
@@ -227,9 +235,12 @@ async function setupMetaPixelTracking() {
     
     window.addEventListener('scroll', handleScroll);
     
-    // Track AddToCart event when CTA is clicked
+    // Track AddToCart event when CTA is clicked with delayed redirect
     cta.addEventListener('click', function(event) {
-      console.log('🎯 CTA button clicked!');
+      // Prevent default link behavior to control timing
+      event.preventDefault();
+      
+      console.log('🎯 CTA button clicked! Tracking event before redirect...');
       
       const addToCartData = {
         content_name: 'PopDez Bonus Exclusivo',
@@ -240,7 +251,44 @@ async function setupMetaPixelTracking() {
         ...utmParams
       };
       
-      trackMetaPixelEvent('AddToCart', addToCartData, 'CTA button clicked');
+      // Track the event
+      const eventSent = trackMetaPixelEvent('AddToCart', addToCartData, 'CTA button clicked');
+      
+      // Get destination URL from data attribute
+      const destinationUrl = cta.getAttribute('data-destination');
+      
+      if (destinationUrl) {
+        // Wait for Meta Pixel event to be sent before redirecting
+        // Use both timeout and fbq callback for maximum compatibility
+        let redirected = false;
+        
+        const performRedirect = () => {
+          if (!redirected) {
+            redirected = true;
+            console.log('🚀 Redirecting to:', destinationUrl);
+            window.location.href = destinationUrl;
+          }
+        };
+        
+        // Primary method: Wait for fbq to process (300ms is usually enough)
+        setTimeout(performRedirect, 300);
+        
+        // Fallback: Ensure redirect happens even if event fails (1 second max)
+        setTimeout(performRedirect, 1000);
+        
+        // Optional: Try to use fbq callback if available (not always supported)
+        try {
+          if (window.fbq && typeof window.fbq.queue !== 'undefined') {
+            window.fbq('track', 'AddToCart', addToCartData, {
+              eventID: 'redirect_' + Date.now() // Prevent duplicate events
+            });
+          }
+        } catch (e) {
+          console.log('📝 Note: fbq callback not available, using timeout method');
+        }
+      } else {
+        console.error('❌ No destination URL found in data-destination attribute');
+      }
     });
     
     console.log('✅ Meta Pixel tracking setup completed successfully');
@@ -399,6 +447,86 @@ function sendTestEvent() {
   return trackMetaPixelEvent('Purchase', testData, 'Manual test event');
 }
 
+/*
+  Function: diagnoseMetaPixel
+  Purpose: Comprehensive diagnostic function to check Meta Pixel health and connectivity
+           Provides detailed information about potential issues
+  
+  External APIs used:
+  - fbq (Meta Pixel): Facebook pixel tracking function
+  - Performance API: Check network requests to Facebook
+*/
+function diagnoseMetaPixel() {
+  console.log('🔧 === META PIXEL DIAGNOSTIC REPORT ===');
+  
+  // Check if fbq is available
+  if (typeof window.fbq === 'undefined') {
+    console.error('❌ Meta Pixel (fbq) is NOT loaded');
+    return;
+  }
+  
+  console.log('✅ Meta Pixel (fbq) is available');
+  console.log('📊 Pixel loaded status:', window.fbq.loaded);
+  console.log('📊 Pixel version:', window.fbq.version);
+  
+  // Check recent network requests to Facebook
+  if ('performance' in window && 'getEntriesByType' in performance) {
+    const networkEntries = performance.getEntriesByType('resource');
+    const facebookRequests = networkEntries.filter(entry => 
+      entry.name.includes('facebook.com') || entry.name.includes('connect.facebook.net')
+    );
+    
+    console.log('🌐 Facebook network requests found:', facebookRequests.length);
+    facebookRequests.forEach((request, index) => {
+      console.log(`   ${index + 1}. ${request.name} (${request.responseStatus || 'unknown status'})`);
+    });
+  }
+  
+  // Check for ad blockers or privacy features
+  const testPixel = new Image();
+  testPixel.onload = () => console.log('✅ Facebook tracking domain is accessible');
+  testPixel.onerror = () => console.error('❌ Facebook tracking domain is BLOCKED (ad blocker or privacy settings)');
+  testPixel.src = 'https://www.facebook.com/tr?id=1032961382302053&ev=PageView&noscript=1&test=1';
+  
+  // Browser detection
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isPrivateMode = window.navigator.doNotTrack === '1';
+  
+  console.log('📱 Browser info:');
+  console.log('   iOS device:', isIOS);
+  console.log('   Safari browser:', isSafari);
+  console.log('   Do Not Track enabled:', isPrivateMode);
+  
+  if (isIOS || isSafari) {
+    console.warn('⚠️  iOS/Safari detected - tracking may be limited by Intelligent Tracking Prevention');
+  }
+  
+  // Test event firing
+  console.log('🧪 Sending diagnostic test event...');
+  sendTestEvent();
+  
+  // GitHub Pages specific checks
+  const isGitHubPages = window.location.hostname.includes('github.io');
+  console.log('🏠 GitHub Pages hosting:', isGitHubPages);
+  
+  if (isGitHubPages) {
+    console.log('📝 GitHub Pages detected - ensure domain is verified in Facebook Business Manager');
+    console.log('📝 GitHub Pages may have additional HTTPS/security considerations');
+  }
+  
+  console.log('📋 NEXT STEPS:');
+  console.log('   1. Click your CTA button and watch for "Redirecting to:" message');
+  console.log('   2. Check Network tab for requests to facebook.com/tr');
+  console.log('   3. Wait 15-30 minutes and check Facebook Events Manager');
+  console.log('   4. Verify domain in Facebook Business Manager (especially for GitHub Pages)');
+  console.log('   5. Install Meta Pixel Helper browser extension');
+  console.log('🔧 === END DIAGNOSTIC REPORT ===');
+}
+
+// Make diagnostic function globally available
+window.diagnoseMetaPixel = diagnoseMetaPixel;
+
 // Make test function globally available for console debugging
 window.sendTestEvent = sendTestEvent;
 
@@ -409,7 +537,8 @@ function init() {
   initCarousel();
   
   // Log helpful debug info
-  console.log('🔧 Debug: Call sendTestEvent() in console to test Meta Pixel');
+  console.log('🔧 Debug: Call diagnoseMetaPixel() in console for full diagnostic');
+  console.log('🔧 Debug: Call sendTestEvent() to test individual events');
   console.log('🔧 Debug: Check Network tab for fbevents requests');
   console.log('🔧 Debug: Use Meta Pixel Helper browser extension for validation');
 }
