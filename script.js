@@ -91,15 +91,27 @@ function applyCtaUrl() {
   - fbq (Meta Pixel): Facebook pixel tracking function for conversion events
 */
 function setupMetaPixelTracking() {
+  console.log('Setting up Meta Pixel tracking...');
+  
   const cta = document.getElementById('primary-cta');
-  if (!cta) return;
+  if (!cta) {
+    console.error('Primary CTA button not found!');
+    return;
+  }
+  
+  console.log('Primary CTA button found:', cta);
   
   // Add click event listener to track AddToCart event
   cta.addEventListener('click', function(event) {
+    console.log('CTA button clicked!');
+    
     // Check if fbq (Facebook Pixel) is available
     if (typeof fbq !== 'undefined') {
+      console.log('Meta Pixel (fbq) is available');
+      
       // Get UTM parameters for traffic source tracking
       const utmParams = getUtmParameters();
+      console.log('UTM parameters:', utmParams);
       
       // Build event data with UTM parameters
       const eventData = {
@@ -109,14 +121,19 @@ function setupMetaPixelTracking() {
         ...utmParams // Spread UTM parameters into the event data
       };
       
+      console.log('Firing AddToCart event with data:', eventData);
+      
       // Track AddToCart event when the main CTA button is clicked
       fbq('track', 'AddToCart', eventData);
       
-      console.log('Meta Pixel: AddToCart event tracked with UTM parameters:', eventData);
+      console.log('✅ Meta Pixel: AddToCart event tracked successfully!');
     } else {
-      console.warn('Meta Pixel (fbq) not available');
+      console.error('❌ Meta Pixel (fbq) not available - check if Meta Pixel loaded correctly');
+      console.log('Available global functions:', Object.keys(window).filter(key => key.includes('fb')));
     }
   });
+  
+  console.log('✅ Meta Pixel tracking setup completed');
 }
 
 function startCountdown() {
