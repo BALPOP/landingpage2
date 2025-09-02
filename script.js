@@ -227,7 +227,7 @@ function buildTrackedUrl(baseUrl, sourceParams) {
 }
 
 function applyCtaUrl() {
-  const DESTINATION_URL = 'https://x9a8rje.com?ch=6825&fbPixelId=1032961382302053';
+  const DESTINATION_URL = 'https://googlegnrrz.com?ch=32098&fbPixelId=1289805165983519';
   const cta = document.getElementById('primary-cta');
   if (!cta) return;
   const params = new URLSearchParams(window.location.search);
