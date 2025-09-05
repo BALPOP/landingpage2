@@ -227,7 +227,7 @@ function buildTrackedUrl(baseUrl, sourceParams) {
 }
 
 function applyCtaUrl() {
-  const DESTINATION_URL = 'https://googlegnrrz.com?ch=32098&fbPixelId=1289805165983519';
+  const DESTINATION_URL = 'https://m4n8a2y.com?ch=8185&fbPixelId=535172306215849';
   const cta = document.getElementById('primary-cta');
   if (!cta) return;
   const params = new URLSearchParams(window.location.search);
@@ -597,7 +597,7 @@ function sendTestEvent(testEventCode = null) {
 async function testFacebookConnectivity() {
   console.log('🌐 === FACEBOOK CONNECTIVITY TEST ===');
   
-  const pixelId = '1289805165983519';
+  const pixelId = '535172306215849';
   const testResults = {};
   
   // Test 1: Facebook Pixel Script Loading
@@ -704,7 +704,7 @@ async function diagnoseMetaPixel() {
   const testPixel = new Image();
   testPixel.onload = () => console.log('✅ Facebook tracking domain is accessible');
   testPixel.onerror = () => console.error('❌ Facebook tracking domain is BLOCKED (ad blocker or privacy settings)');
-  testPixel.src = 'https://www.facebook.com/tr?id=1289805165983519&ev=PageView&noscript=1&test=1';
+  testPixel.src = 'https://www.facebook.com/tr?id=535172306215849&ev=PageView&noscript=1&test=1';
   
   // Browser detection
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -937,7 +937,7 @@ function sendAdsManagerTest() {
   console.log('📊 === SENDING ADS MANAGER TEST EVENTS ===');
   
   const testCode = 'ADS_MANAGER_TEST_' + Date.now();
-  const pixelId = '1289805165983519';
+  const pixelId = '535172306215849';
   
   console.log('🎯 Test Event Code for Ads Manager:', testCode);
   console.log('📱 Pixel ID:', pixelId);
