@@ -232,14 +232,7 @@ function applyCtaUrl() {
   if (!cta) return;
   const params = new URLSearchParams(window.location.search);
   const tracked = buildTrackedUrl(DESTINATION_URL, params);
-  
-  // Store the destination URL for programmatic redirect after event tracking
-  cta.setAttribute('data-destination', tracked);
-  
-  // Remove href to prevent immediate navigation - we'll handle redirect manually
-  cta.removeAttribute('href');
-  
-  // Add visual indication that it's clickable
+  cta.setAttribute('href', tracked);
   cta.style.cursor = 'pointer';
 }
 
@@ -997,16 +990,10 @@ function sendAdsManagerTest() {
   return testCode;
 }
 
-// Make all functions globally available for console debugging
-window.diagnoseMetaPixel = diagnoseMetaPixel;
-window.sendTestEvent = sendTestEvent;
+// Make selected non-tracking utilities globally available
 window.generateUtmUrls = generateUtmUrls;
 window.showTrafficSourceReport = showTrafficSourceReport;
 window.getTrafficSourceInfo = getTrafficSourceInfo;
-window.verifyBasicPageView = verifyBasicPageView;
-window.testFacebookConnectivity = testFacebookConnectivity;
-window.setupTestEventsMode = setupTestEventsMode;
-window.sendAdsManagerTest = sendAdsManagerTest;
 window.keepUtmInUrl = keepUtmInUrl;
 window.diagnoseGitHubPagesIssues = diagnoseGitHubPagesIssues;
 
@@ -1172,12 +1159,7 @@ function init() {
   
   applyCtaUrl();
   
-  // Verify basic PageView fired
-  setTimeout(() => {
-    verifyBasicPageView();
-  }, 500);
-  
-  setupMetaPixelTracking();
+
   startCountdown();
   initCarousel();
   
